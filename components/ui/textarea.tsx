@@ -1,3 +1,4 @@
+// components/ui/textarea.tsx
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
@@ -10,7 +11,10 @@ interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement
 }
 
 const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ className, label, helperText, error, required, maxLength, ...props }, ref) => {
+  (
+    { className, label, helperText, error, required, maxLength, ...props },
+    ref
+  ) => {
     const [charCount, setCharCount] = React.useState(0);
 
     const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -18,15 +22,17 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
       props.onChange?.(e);
     };
 
+    const hasError = Boolean(error);
+
     return (
       <div className="w-full space-y-1">
         {label && (
           <label
             htmlFor={props.id}
-            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            className="block text-sm font-medium text-textHeading"
           >
             {label}
-            {required && <span className="text-red-500 ml-1">*</span>}
+            {required && <span className="text-accentRed ml-1">*</span>}
           </label>
         )}
         <textarea
@@ -34,27 +40,32 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           onChange={handleChange}
           maxLength={maxLength}
           className={cn(
-            "w-full min-h-[4rem] resize-y rounded-md border bg-white text-gray-800 dark:bg-gray-700 dark:text-white px-3 py-2 text-base shadow-sm transition focus:outline-none",
-            "border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-500",
-            error && "border-red-500 focus:border-red-500 focus:ring-red-500",
+            "w-full min-h-[4rem] resize-y rounded-md bg-secondaryBg text-textPrimary px-3 py-2 shadow-sm transition-colors outline-none",
+            // Border color depends on error or normal
+            hasError
+              ? "border border-accentRed focus:border-accentRed focus:ring-accentRed/40"
+              : "border border-borderBg focus:border-accentBlue focus:ring-accentBlue/40",
             className
           )}
-          aria-invalid={!!error}
+          aria-invalid={hasError}
           aria-describedby={helperText ? `${props.id}-helper` : undefined}
           {...props}
         />
         {helperText && (
-          <p id={`${props.id}-helper`} className="text-sm text-gray-500 dark:text-gray-400">
+          <p
+            id={`${props.id}-helper`}
+            className="text-sm text-textPrimary/60"
+          >
             {helperText}
           </p>
         )}
         {maxLength && (
-          <p className="text-sm text-gray-500 dark:text-gray-400 text-right">
+          <p className="text-sm text-textPrimary/60 text-right">
             {charCount}/{maxLength} characters
           </p>
         )}
-        {error && (
-          <p className="text-sm text-red-600 dark:text-red-500">{error}</p>
+        {hasError && (
+          <p className="text-sm text-accentRed">{error}</p>
         )}
       </div>
     );
@@ -62,5 +73,4 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
 );
 
 Textarea.displayName = "Textarea";
-
 export { Textarea };

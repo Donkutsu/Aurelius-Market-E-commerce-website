@@ -3,7 +3,6 @@
 import React from "react";
 import db from "@/lib/db";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
-import { resolve } from "path";
 
 async function getUserData() {
   const [userCount, orderData] = await Promise.all([
@@ -25,8 +24,8 @@ async function getSalesData() {
     _sum: { pricePaidInCents: true },
     _count: true,
   });
-      
-  await wait(2000)
+
+  await wait(2000);
 
   return {
     amount: (data._sum.pricePaidInCents || 0) / 100,
@@ -34,9 +33,8 @@ async function getSalesData() {
   };
 }
 
-function wait(duration: number){
-  return new Promise(resolve => setTimeout(resolve, duration))
-
+function wait(duration: number) {
+  return new Promise((resolve) => setTimeout(resolve, duration));
 }
 
 async function getProductData() {
@@ -92,22 +90,21 @@ function DashboardCard({ title, subtitle, body }: DashboardCardProps) {
     <div
       className="
         flex flex-col
-        bg-black/50
-        border border-white/30
+        bg-secondaryBg
+        border border-borderBg
         rounded-2xl
-        shadow-xl
-        backdrop-blur-md
+        shadow-lg
         px-6 py-8
-        transition-all duration-300
-        hover:scale-[1.02] hover:shadow-2xl hover:border-white/50
+        transition-transform duration-300
+        hover:scale-[1.02] hover:shadow-2xl hover:border-borderBg/70
       "
     >
       <header className="mb-4">
-        <h2 className="text-3xl font-extrabold text-white">{title}</h2>
-        <p className="text-sm text-white/70">{subtitle}</p>
+        <h2 className="text-3xl font-extrabold text-textHeading">{title}</h2>
+        <p className="text-sm text-textPrimary/70">{subtitle}</p>
       </header>
       <div className="mt-auto">
-        <p className="text-4xl font-bold text-white">{body}</p>
+        <p className="text-4xl font-bold text-textHeading">{body}</p>
       </div>
     </div>
   );

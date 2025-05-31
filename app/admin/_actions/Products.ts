@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { redirect, notFound } from 'next/navigation';
 import db from '@/lib/db';
 import fs from 'fs/promises';
+import { revalidatePath } from 'next/cache';
 
 // On the server, file inputs arrive as Blobs, not DOM Files
 const blobSchema = z.instanceof(Blob, { message: 'Required' });
@@ -54,6 +55,8 @@ export async function addProduct(
     },
   });
 
+revalidatePath("/")
+revalidatePath("/products")
   redirect('/admin/products');
 }
 
@@ -106,6 +109,9 @@ export async function updateProduct(
     },
   });
 
+  revalidatePath("/")
+revalidatePath("/products")
+
   redirect('/admin/products');
 }
 
@@ -115,6 +121,8 @@ export async function deleteProduct(id: string) {
   if (!prod) return notFound();
   await fs.unlink(prod.filePath);
   await fs.unlink(`public${prod.imagePath}`);
+  revalidatePath("/")
+revalidatePath("/products")
 }
 
 // TOGGLE
@@ -126,4 +134,6 @@ export async function toggleProductAvailability(
     where: { id },
     data: { isAvailable },
   });
+  revalidatePath("/")
+revalidatePath("/products")
 }

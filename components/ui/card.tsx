@@ -32,43 +32,50 @@ type Order = {
 
 export function OrdersTable({ orders }: { orders: Order[] }) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-muted bg-black/30 backdrop-blur-sm shadow-lg">
+    <div className="overflow-x-auto rounded-2xl border border-borderBg bg-secondaryBg shadow-lg">
       <Table className="table-auto w-full">
-        <TableHeader className="sticky top-0 bg-black/90 backdrop-blur px-4">
+        <TableHeader className="sticky top-0 bg-secondaryBg/95 backdrop-blur px-4">
           <TableRow>
-            <TableHead className="pl-6">Order ID</TableHead>
-            <TableHead>Customer</TableHead>
-            <TableHead>Product</TableHead>
-            <TableHead>Amount</TableHead>
-            <TableHead>Date</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="pr-6 text-right">Actions</TableHead>
+            <TableHead className="pl-6 text-textHeading">Order ID</TableHead>
+            <TableHead className="text-textHeading">Customer</TableHead>
+            <TableHead className="text-textHeading">Product</TableHead>
+            <TableHead className="text-textHeading">Amount</TableHead>
+            <TableHead className="text-textHeading">Date</TableHead>
+            <TableHead className="text-textHeading">Status</TableHead>
+            <TableHead className="pr-6 text-right text-textHeading">
+              Actions
+            </TableHead>
           </TableRow>
         </TableHeader>
 
-        <TableBody className="[&>tr:nth-child(even)]:bg-muted/20">
+        <TableBody className="[&>tr:nth-child(even)]:bg-bg-border/40">
           {orders.map((order) => (
-            <TableRow key={order.id} className="hover:bg-muted/40">
-              <TableCell className="pl-6 font-mono text-xs text-foreground">
+            <TableRow
+              key={order.id}
+              className="hover:bg-bg-border/60 transition-colors"
+            >
+              <TableCell className="pl-6 font-mono text-xs text-textPrimary">
                 {order.id}
               </TableCell>
 
-              <TableCell>{order.customer}</TableCell>
+              <TableCell className="text-textPrimary">
+                {order.customer}
+              </TableCell>
 
-              <TableCell className="flex items-center gap-2">
+              <TableCell className="flex items-center gap-2 text-textPrimary">
                 <img
                   src={order.product.imageUrl}
                   alt={order.product.name}
-                  className="h-8 w-8 rounded object-cover border border-white/20"
+                  className="h-8 w-8 rounded object-cover border border-borderBg"
                 />
                 <span>{order.product.name}</span>
               </TableCell>
 
-              <TableCell className="text-primary font-semibold">
+              <TableCell className="text-accentBlue font-semibold">
                 ₹{order.amount.toFixed(2)}
               </TableCell>
 
-              <TableCell className="text-sm text-muted-foreground">
+              <TableCell className="text-sm text-textPrimary">
                 {order.date}
               </TableCell>
 
@@ -88,20 +95,24 @@ export function OrdersTable({ orders }: { orders: Order[] }) {
               <TableCell className="pr-6 text-right">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button className="p-2 rounded hover:bg-white/10">
-                      <MoreVertical className="h-4 w-4 text-muted-foreground" />
+                    <button className="p-2 rounded-full bg-bg-border hover:bg-borderBg transition-colors">
+                      <MoreVertical className="h-4 w-4 text-textPrimary" />
                       <span className="sr-only">Actions</span>
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuContent align="end" className="w-48 bg-secondaryBg border border-borderBg">
                     <DropdownMenuItem asChild>
-                      <Link href={`/admin/orders/${order.id}`}>View</Link>
+                      <Link href={`/admin/orders/${order.id}`} className="text-textPrimary hover:text-accentBlue">
+                        View
+                      </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <Link href={`/admin/orders/${order.id}/edit`}>Edit</Link>
+                      <Link href={`/admin/orders/${order.id}/edit`} className="text-textPrimary hover:text-accentBlue">
+                        Edit
+                      </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem
-                      className="text-destructive hover:bg-destructive/80"
+                      className="text-accentRed hover:bg-accentRed/10"
                       onClick={() => {
                         /* your delete logic */
                       }}
