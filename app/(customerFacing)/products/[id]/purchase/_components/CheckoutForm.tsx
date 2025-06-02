@@ -1,147 +1,153 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import Image from "next/image";
+import axios from "axios";
 import { formatCurrency } from "@/lib/formatters";
-import { Button } from "@/components/ui/button";
 
-type Product = {
-  id: string;
-  name: string;
-  description: string;
-  imagePath: string | null;
-  priceInCents: number;
-};
+// Add Razorpay type to window
+declare global {
+  interface Window {
+    Razorpay?: any;
+  }
+}
+
 
 type CheckoutFormProps = {
-  product: Product;
-  orderId: string;
-  razorpayKey: string; // RAZORPAY_KEY_ID
+  product: {
+    id: string;
+    name: string;
+    priceInCents: number;
+    imagePath: string;
+    description: string;
+  };
+  orderId: string;      // Razorpay order ID returned from server
 };
 
-export function CheckoutForm({
-  product,
-  orderId,
-  razorpayKey,
-}: CheckoutFormProps) {
-  const router = useRouter();
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const razorpayRef = useRef<any>(null);
+export default function CheckoutForm({ product, orderId }: CheckoutFormProps) {
+  const [email, setEmail] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [scriptLoaded, setScriptLoaded] = useState(false);
 
-  // Load Razorpay checkout script on mount
+  // Load Razorpay script
   useEffect(() => {
-    const script = document.createElement("script");
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-    script.async = true;
-    script.onerror = () => {
-      console.error("Razorpay SDK failed to load.");
-      setErrorMessage("Unable to load payment gateway. Please try again later.");
-    };
-    document.body.appendChild(script);
-    return () => {
-      document.body.removeChild(script);
-    };
-  }, []);
-
-  // Handle payment when "Pay" is clicked
-  const handlePayment = () => {
-    setErrorMessage(null);
-    setIsProcessing(true);
-
-    if (typeof (window as any).Razorpay !== "function") {
-      setErrorMessage("Payment SDK failed to load. Try again later.");
-      setIsProcessing(false);
+    if (window.Razorpay) {
+      setScriptLoaded(true);
       return;
     }
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.onload = () => setScriptLoaded(true);
+    script.onerror = () => setError("Failed to load Razorpay SDK");
+    document.body.appendChild(script);
+  }, []);
 
-    const options = {
-      key: razorpayKey,
-      amount: product.priceInCents,
+  const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+
+  const handlePayment = async () => {
+    if (!isEmailValid || !scriptLoaded) return;
+    setIsLoading(true);
+    setError(null);
+
+    const options: any = {
+      key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID, // your Razorpay Key ID (public)
+      amount: product.priceInCents,                  // in paise
       currency: "INR",
-      order_id: orderId,
-      name: product.name,
-      description: product.description,
-      image: product.imagePath ?? "",
+      name: "Your Store Name",                       // shown at top of checkout form
+      description: product.name,
+      order_id: orderId,                             // Razorpay order ID from server
+      prefill: {
+        email: email.trim(),
+      },
+      theme: {
+        color: "#1f2937",        // e.g. a dark gray (#1f2937) or any hex you prefer
+        backdrop_color: "#000000", // a blackish backdrop
+      },
       handler: async (response: any) => {
+        // 4️⃣ On success: call our Next.js API to verify & store
         try {
-          const verifyRes = await fetch("/api/razorpay/verify-payment", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              razorpayOrderId: response.razorpay_order_id,
-              razorpayPaymentId: response.razorpay_payment_id,
-              razorpaySignature: response.razorpay_signature,
-            }),
+          await axios.post("/api/verify-purchase", {
+            email: email.trim(),
+            productId: product.id,
+            razorpayOrderId: response.razorpay_order_id,
+            razorpayPaymentId: response.razorpay_payment_id,
+            razorpaySignature: response.razorpay_signature,
           });
-          const data = await verifyRes.json();
-          if (verifyRes.ok && data.verified) {
-            router.push(`/razorpay/success?order_id=${response.razorpay_order_id}`);
-          } else {
-            setErrorMessage("Payment verification failed. Please contact support.");
-          }
-        } catch (err: unknown) {
-          console.error("Error verifying Razorpay payment:", err);
-          setErrorMessage("An error occurred while verifying payment.");
+          // If no error, redirect or show success
+          window.location.href = "/purchase-success";
+        } catch (err: any) {
+          console.error(err);
+          setError(
+            err.response?.data?.error || "Verification failed"
+          );
         } finally {
-          setIsProcessing(false);
+          setIsLoading(false);
         }
       },
-      prefill: {
-        name: "",
-        email: "",
-        contact: "",
+      modal: {
+        ondismiss: () => {
+          setIsLoading(false);
+        },
       },
-      notes: { productId: product.id },
-      theme: { color: "#FF4500" },
     };
 
-    razorpayRef.current = new (window as any).Razorpay(options);
-    razorpayRef.current.open();
+    // 5️⃣ Open Razorpay checkout
+    const rzp = new window.Razorpay(options);
+    rzp.open();
   };
 
   return (
-    <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg flex flex-col md:flex-row max-w-3xl w-full overflow-hidden">
-      {/* Product Image */}
-      <div className="md:w-1/3 w-full h-64 md:h-auto relative bg-gray-100 dark:bg-gray-700">
-        {product.imagePath ? (
+    <div className="max-w-2xl mx-auto space-y-8">
+      <div className="flex gap-4 items-center">
+        <div className="aspect-video w-1/3 relative">
           <Image
             src={product.imagePath}
-            alt={product.name}
             fill
-            className="object-cover transition-transform duration-300 transform hover:scale-105"
+            alt={product.name}
+            className="object-cover"
           />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-gray-500">
-            No Image Available
-          </div>
-        )}
-      </div>
-
-      {/* Details + Pay */}
-      <div className="md:w-2/3 w-full p-6 flex flex-col justify-between">
+        </div>
         <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">{product.name}</h1>
-          <div className="text-xl text-green-600 font-semibold mb-4">
+          <div className="text-lg">
             {formatCurrency(product.priceInCents / 100)}
           </div>
-          <p className="text-gray-600 dark:text-gray-300 mb-6 line-clamp-4">
+          <h1 className="text-2xl font-bold">{product.name}</h1>
+          <div className="line-clamp-3 text-muted-foreground">
             {product.description}
-          </p>
+          </div>
         </div>
-
-        {errorMessage && <p className="text-red-500 mb-4">{errorMessage}</p>}
-
-        <Button
-          onClick={handlePayment}
-          className="bg-blue-600 text-white w-full rounded-xl px-6 py-3 font-semibold shadow-lg hover:bg-blue-700 transition-all duration-200"
-          size="lg"
-          disabled={isProcessing}
-        >
-          {isProcessing ? "Processing…" : `Pay ₹${(product.priceInCents / 100).toFixed(2)}`}
-        </Button>
       </div>
+
+      <div>
+        <label htmlFor="email" className="block font-medium mb-1">
+          Your email (required)
+        </label>
+        <input
+          id="email"
+          type="email"
+          placeholder="you@example.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="w-full p-2 border rounded-md"
+        />
+      </div>
+
+      {error && (
+        <p className="text-sm text-red-600">{error}</p>
+      )}
+
+      <button
+        onClick={handlePayment}
+        disabled={!isEmailValid || isLoading || !scriptLoaded}
+        className={`w-full px-6 py-3 text-white font-semibold rounded-md ${
+          !isEmailValid || isLoading || !scriptLoaded
+            ? "bg-gray-400 cursor-not-allowed"
+            : "bg-sky-600 hover:bg-sky-700"
+        }`}
+      >
+        {isLoading ? "Processing…" : `Pay ₹${(product.priceInCents / 100).toFixed(2)}`}
+      </button>
     </div>
   );
 }

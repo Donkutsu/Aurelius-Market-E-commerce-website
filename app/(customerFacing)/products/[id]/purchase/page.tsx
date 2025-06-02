@@ -1,51 +1,56 @@
-import Razorpay from "razorpay";
-import { notFound } from "next/navigation";
 import db from "@/lib/db";
-import { CheckoutForm } from "./_components/CheckoutForm";
+import { notFound } from "next/navigation";
+import Razorpay from "razorpay";
+import CheckoutForm from "./_components/CheckoutForm";
 
-type PurchasePageProps = {
-  params: { id: string };
-};
+// Initialize Razorpay instance
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID!,
+  key_secret: process.env.RAZORPAY_KEY_SECRET!,
+});
 
-export default async function PurchasePage({ params }: PurchasePageProps) {
-  const { id: productId } = await params; // Await params here
+export default async function PurchasePage({
+  params,
+}: {
+  params: { id: string }; // Correctly define params type
+}) {
+  // Await the params to access id
+  const { id } = await params;
 
-  // --- 1) Fetch the product from the database on the server
-  const product = await db.product.findUnique({
-    where: { id: productId },
+  // Fetch the product from the database
+  const product = await db.product.findUnique({ where: { id } });
+
+  if (!product) return notFound();
+
+  // Create a new Razorpay order
+  const order = await razorpay.orders.create({
+    amount: product.priceInCents, // Amount in paise
+    currency: "INR",
+    receipt: product.id,
+    partial_payment: false,
   });
 
-  // If no product, return 404
-  if (!product) {
-    return notFound();
+  // Create a new order in the database (ensure to fill in the necessary fields)
+  /*const newOrder = await db.order.create({
+    *data: {
+     * pricePaidInCents: product.priceInCents,
+      *razorpayOrderId: order.id,
+      *razorpayPaymentId: "", // Set to empty string or actual payment ID if available
+      *status: false, // Default status
+      *userId: "", // Replace with actual user ID
+      *productId: product.id,
+    *},
+  });*/
+
+  if (!order || !order.id) {
+    throw new Error("Failed to create Razorpay order");
   }
 
- const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID as string,
-  key_secret: process.env.RAZORPAY_KEY_SECRET as string,
-});
-const receiptId = `receipt_${product.id.substring(0, 30)}`; // Ensure receipt length is <= 40
-const order = await razorpay.orders.create({
-  amount: product.priceInCents, // e.g. ₹500.00 → 50000 paise
-  currency: "INR",
-  receipt: receiptId, // Use the truncated receipt ID
-  notes: { productId: product.id },
-});
-
-  // --- 3) Render the client‐side checkout component, passing product + orderId + key
+  // Render client-side checkout form with product + order.id
   return (
-    <div className="min-h-screen flex items-center justify-center bg-secondaryBg p-4">
-      <CheckoutForm
-        product={{
-          id: product.id,
-          name: product.name,
-          description: product.description,
-          priceInCents: product.priceInCents,
-          imagePath: product.imagePath,
-        }}
-        orderId={order.id}
-        razorpayKey={process.env.RAZORPAY_KEY_ID as string}
-      />
-    </div>
+    <CheckoutForm
+      product={product}
+      orderId={order.id} // This is Razorpay order ID, used on client
+    />
   );
 }

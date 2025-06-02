@@ -41,6 +41,9 @@ model Order {
 
 id String @id @default(uuid())
 pricePaidInCents Int
+razorpayOrderId    String  @unique
+razorpayPaymentId  String  @unique
+status             Boolean @default(false)
 createdAt DateTime @default(now())
 updatedAt DateTime @updatedAt
 userId String
