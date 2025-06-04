@@ -57,7 +57,7 @@ export function ProductCard({
 
           {/* “Buy” instead of “View” */}
           <Link href={`/products/${id}/purchase`}>
-            <Button className="bg-accentRed text-black dark:text-white rounded-xl px-6 py-2 font-semibold shadow-lg hover:bg-accentRed/80 transition-all duration-200">
+            <Button variant="adminAction" className="px-4 py-2 text-sm font-medium">
               Buy
             </Button>
           </Link>

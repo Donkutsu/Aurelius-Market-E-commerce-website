@@ -1,31 +1,27 @@
-"use server";
+"use server"
 
-import db from "@/lib/db";
+import db from "@/lib/db"
 
 /**
- * Check if a user has an order for `productId` that is either:
- *   - COMPLETED (they’ve already bought it), or
- *   - PROCESSING (an in-progress payment) created in the last 30 minutes.
+ * Checks whether a user has a *completed* order for a specific product.
+ * Later: Add cooldown (30 min) if needed for repeat purchases.
  */
-export async function userOrderExists(
-  email: string,
-  productId: string
-): Promise<boolean> {
-  const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
-
-  const existing = await db.order.findFirst({
-    where: {
-      user: { email },       // join on user by email
-      productId,             // same product
-      status: {
-        in: ["PROCESSING", "COMPLETED"], // block if processing or already done
+export async function userOrderExists(userId: string, productId: string) {
+  try {
+    const existingOrder = await db.order.findFirst({
+      where: {
+        userId,
+        productId,
+        status: true, // only count fully paid orders
+        // 🔒 Future idea: Add a cooldown check like:
+        createdAt: { gte: new Date(Date.now() - 30 * 60 * 1000) }
       },
-      createdAt: {
-        gte: thirtyMinutesAgo, // only consider recent processing orders
-      },
-    },
-    select: { id: true },
-  });
+      select: { id: true },
+    });
 
-  return existing != null;
+    return existingOrder != null;
+  } catch (err) {
+    console.error("🔴 userOrderExists error:", err);
+    throw new Error("⚠️ Could not check prior purchase. Try again later.");
+  }
 }

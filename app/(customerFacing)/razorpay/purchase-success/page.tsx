@@ -1,4 +1,6 @@
 // app/(customerFacing)/razorpay/purchase-success/page.tsx
+
+import { Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import db from "@/lib/db";
 import { formatCurrency } from "@/lib/formatters";
@@ -8,62 +10,116 @@ import { notFound } from "next/navigation";
 
 type SuccessPageProps = {
   searchParams: {
-    order_id?: string; // Razorpay order_id passed in the query
+    order_id?: string; // ?order_id=…
   };
 };
 
-export default async function SuccessPage({ searchParams }: SuccessPageProps) {
-  // Must “await” searchParams in Next.js 13+
+export default function PurchaseSuccessPageWrapper(props: SuccessPageProps) {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-lg">Loading your order…</div>
+        </div>
+      }
+    >
+      <PurchaseSuccessPage {...props} />
+    </Suspense>
+  );
+}
+
+async function PurchaseSuccessPage({ searchParams }: SuccessPageProps) {
   const { order_id } = await searchParams;
+  if (!order_id) return notFound();
 
-  // 1️⃣ If no order_id in query, 404
-  if (!order_id) {
-    return notFound();
-  }
-
-  // 2️⃣ Find our DB order by razorpayOrderId
+  // ─── 1) Fetch order record (include createdAt) ──────────────────────────
   const orderRecord = await db.order.findUnique({
     where: { razorpayOrderId: order_id },
     select: {
       id: true,
       productId: true,
       pricePaidInCents: true,
-      status: true,
+      status: true,        // boolean
+      createdAt: true,     // purchase date
     },
   });
-  if (!orderRecord) {
-    return notFound();
-  }
+  if (!orderRecord) return notFound();
 
-  // 3️⃣ Fetch the product details
+  // ─── 2) Fetch product details ───────────────────────────────────────────
   const product = await db.product.findUnique({
     where: { id: orderRecord.productId },
   });
-  if (!product) {
-    return notFound();
+  if (!product) return notFound();
+
+  const isSuccess = orderRecord.status === true;
+
+  // ─── 3) Create or reuse download token ─────────────────────────────────
+  let downloadId: string | null = null;
+  let expiresAt: Date | null = null;
+  if (isSuccess) {
+    // Try to find an existing non-expired token
+    const existing = await db.downloadVerification.findFirst({
+      where: {
+        productId: product.id,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, expiresAt: true },
+    });
+
+    if (existing) {
+      downloadId = existing.id;
+      expiresAt = existing.expiresAt;
+    } else {
+      const dv = await db.downloadVerification.create({
+        data: {
+          productId: product.id,
+          expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24), // 24h
+        },
+      });
+      downloadId = dv.id;
+      expiresAt = dv.expiresAt;
+    }
   }
 
-  // 4️⃣ Check if the DB order’s status is COMPLETED
-  const isSuccess = orderRecord.status === "COMPLETED";
+  // ─── 4) Compute time‐left and button color ─────────────────────────────
+  let buttonClass = "bg-accentRed hover:bg-accentRed/80"; // default wasted, unseen
+  let expirationText: string | null = null;
 
-  // 5️⃣ If successful, create a one-time DownloadVerification
-  let downloadId: string | null = null;
-  if (isSuccess) {
-    const dv = await db.downloadVerification.create({
-      data: {
-        productId: product.id,
-        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24), // 24 hours
-      },
-    });
-    downloadId = dv.id;
+  if (expiresAt) {
+    const now = Date.now();
+    const expiresMs = expiresAt.getTime();
+    const diffMs = expiresMs - now;
+
+    // Format the expiration timestamp for display:
+    expirationText = new Intl.DateTimeFormat("en", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(expiresAt);
+
+    // If more than 60 minutes left → green button; otherwise red
+    if (diffMs > 60 * 60 * 1000) {
+      buttonClass = "bg-green-600 hover:bg-green-700";
+    } else {
+      buttonClass = "bg-red-600 hover:bg-red-700";
+    }
   }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-primaryBg dark:bg-primaryBg p-6">
-      <div className="w-full max-w-4xl space-y-8">
-        <h1 className="text-4xl font-bold text-textHeading">
-          {isSuccess ? "🎉 Payment Successful!" : "❌ Payment Failed"}
-        </h1>
+      <div className="w-full max-w-4xl space-y-6">
+        {/* ─── 5) Order ID & Purchase Date ──────────────────────────────────── */}
+        <div className="space-y-2 text-center">
+          <h1 className="text-4xl font-bold text-textHeading">
+            {isSuccess ? "🎉 Payment Successful!" : "❌ Payment Not Completed"}
+          </h1>
+          <p className="text-sm text-gray-500">
+            Order #: <span className="font-mono">{orderRecord.id}</span> • Purchased on{" "}
+            {new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(
+              orderRecord.createdAt
+            )}
+          </p>
+        </div>
 
         <div className="flex flex-col md:flex-row gap-6 bg-secondaryBg dark:bg-secondaryBg p-6 rounded-2xl shadow-lg">
           {/* ─── Product Image ─────────────────────────────────────────────────── */}
@@ -82,7 +138,7 @@ export default async function SuccessPage({ searchParams }: SuccessPageProps) {
             )}
           </div>
 
-          {/* ─── Product Details + Action Button ──────────────────────────────── */}
+          {/* ─── Product Details + Download / Retry Button ───────────────────── */}
           <div className="flex-1 flex flex-col justify-between">
             <div>
               <div className="text-lg text-textPrimary/70 dark:text-textPrimary/50">
@@ -96,23 +152,43 @@ export default async function SuccessPage({ searchParams }: SuccessPageProps) {
               </p>
             </div>
 
-            <div>
-              {isSuccess && downloadId ? (
-                <Button
-                  size="lg"
-                  className="w-full bg-accentRed text-black dark:text-white rounded-xl px-6 py-3 font-semibold shadow-lg hover:bg-accentRed/80 transition-all duration-200"
-                  asChild
-                >
-                  <a href={`/products/download/${downloadId}`}>Download Now</a>
-                </Button>
+            <div className="mt-4 space-y-2">
+              {isSuccess && downloadId && expiresAt ? (
+                <>
+                  {/* 6) Show expiration timestamp */}
+                  <p className="text-sm text-gray-500">
+                    Link expires on: <strong>{expirationText}</strong>
+                  </p>
+
+                  {/* 7) Download Now button with aria-label */}
+                  <Button
+                    size="lg"
+                    asChild
+                    className={`w-full text-white rounded-xl px-6 py-3 font-semibold shadow-lg transition-all duration-200 ${buttonClass}`}
+                  >
+                    <a
+                      href={`/products/download/${downloadId}`}
+                      aria-label="Download your purchased file"
+                    >
+                      Download Now
+                    </a>
+                  </Button>
+                </>
               ) : (
-                <Button
-                  size="lg"
-                  className="w-full bg-accentBlue text-white rounded-xl px-6 py-3 font-semibold shadow-lg hover:bg-accentBlue/80 transition-all duration-200"
-                  asChild
-                >
-                  <Link href={`/products/${product.id}/purchase`}>Try Again</Link>
-                </Button>
+                <>
+                  <Button
+                    size="lg"
+                    className="w-full bg-accentBlue text-white rounded-xl px-6 py-3 font-semibold shadow-lg hover:bg-accentBlue/80 transition-all duration-200"
+                    asChild
+                  >
+                    <Link href={`/products/${product.id}/purchase`}>Try Again</Link>
+                  </Button>
+
+                  {/* 7) “Back to Products” link underneath */}
+                  <p className="mt-2 text-sm text-textPrimary/70 dark:text-textPrimary/50">
+                    Or <Link href="/products" className="underline">browse other products</Link>.
+                  </p>
+                </>
               )}
             </div>
           </div>
@@ -120,4 +196,14 @@ export default async function SuccessPage({ searchParams }: SuccessPageProps) {
       </div>
     </div>
   );
+}
+
+async function createDownloadVerification(productId: string) {
+  const dv = await db.downloadVerification.create({
+    data: {
+      productId,
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24), // 24h
+    },
+  });
+  return dv.id;
 }

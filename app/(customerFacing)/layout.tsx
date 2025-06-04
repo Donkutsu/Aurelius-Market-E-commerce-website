@@ -43,7 +43,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
               <NavLink href="/products" className="text-textPrimary hover:text-accentBlue">
                 Products
               </NavLink>
-              <NavLink href="/users" className="text-textPrimary hover:text-accentBlue">
+              <NavLink href="/orders" className="text-textPrimary hover:text-accentBlue">
                 My Orders
               </NavLink>
             </Nav>

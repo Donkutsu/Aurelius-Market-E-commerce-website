@@ -59,11 +59,13 @@ export default async function AdminDashboard() {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 px-4 py-6">
       <DashboardCard
+        href="/admin/orders"
         title="Sales"
         subtitle={`${formatNumber(salesData.numberOfSales)} Orders`}
         body={formatCurrency(salesData.amount)}
       />
       <DashboardCard
+        href="/admin/customers"
         title="Customers"
         subtitle={`${formatCurrency(
           userData.averageValuePerUser
@@ -71,6 +73,7 @@ export default async function AdminDashboard() {
         body={formatNumber(userData.userCount)}
       />
       <DashboardCard
+        href="/admin/products"
         title="Active Products"
         subtitle={`${formatNumber(productData.inactiveCount)} Inactive`}
         body={formatNumber(productData.activeCount)}
@@ -80,12 +83,13 @@ export default async function AdminDashboard() {
 }
 
 type DashboardCardProps = {
+  href?: string; // Optional link for navigation
   title: string;
   subtitle: string;
   body: string;
 };
 
-function DashboardCard({ title, subtitle, body }: DashboardCardProps) {
+function DashboardCard({ title, subtitle, body, }: DashboardCardProps) {
   return (
     <div
       className="
@@ -100,11 +104,11 @@ function DashboardCard({ title, subtitle, body }: DashboardCardProps) {
       "
     >
       <header className="mb-4">
-        <h2 className="text-3xl font-extrabold text-textHeading">{title}</h2>
-        <p className="text-sm text-textPrimary/70">{subtitle}</p>
+        <h2 className="text-3xl font-extrabold cursor-pointer text-textHeading">{title}</h2>
+        <p className="text-sm cursor-pointer text-textPrimary/70">{subtitle}</p>
       </header>
       <div className="mt-auto">
-        <p className="text-4xl font-bold text-textHeading">{body}</p>
+        <p className="text-4xl font-bold cursor-pointer text-textHeading">{body}</p>
       </div>
     </div>
   );

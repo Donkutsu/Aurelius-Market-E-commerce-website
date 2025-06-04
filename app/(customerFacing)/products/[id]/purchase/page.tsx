@@ -9,13 +9,11 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET!,
 });
 
-export default async function PurchasePage({
-  params,
-}: {
-  params: { id: string }; // Correctly define params type
+export default async function PurchasePage(props: {
+  params: { id: string };
 }) {
   // Await the params to access id
-  const { id } = await params;
+  const { id } = await props.params;
 
   // Fetch the product from the database
   const product = await db.product.findUnique({ where: { id } });
@@ -25,22 +23,13 @@ export default async function PurchasePage({
   // Create a new Razorpay order
   const order = await razorpay.orders.create({
     amount: product.priceInCents, // Amount in paise
+    receipt: `receipt-${Date.now()}`,
     currency: "INR",
-    receipt: product.id,
     partial_payment: false,
+    notes: {
+    productId: product.id,
+  },
   });
-
-  // Create a new order in the database (ensure to fill in the necessary fields)
-  /*const newOrder = await db.order.create({
-    *data: {
-     * pricePaidInCents: product.priceInCents,
-      *razorpayOrderId: order.id,
-      *razorpayPaymentId: "", // Set to empty string or actual payment ID if available
-      *status: false, // Default status
-      *userId: "", // Replace with actual user ID
-      *productId: product.id,
-    *},
-  });*/
 
   if (!order || !order.id) {
     throw new Error("Failed to create Razorpay order");

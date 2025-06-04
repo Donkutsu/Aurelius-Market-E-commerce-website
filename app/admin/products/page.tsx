@@ -1,4 +1,3 @@
-// app/admin/products/page.tsx
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "../_components/PageHeader";

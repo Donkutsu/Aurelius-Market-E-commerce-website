@@ -1,39 +1,34 @@
 // app/(customerFacing)/products/download/[downloadVerificationId]/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
 import db from "@/lib/db";
 import fs from "fs/promises";
+import path from "path";
 
 export async function GET(
   req: NextRequest,
-  {
-    params: { downloadVerificationId },
-  }: { params: { downloadVerificationId: string } }
+  { params: { downloadVerificationId } }: { params: { downloadVerificationId: string } }
 ) {
-  // 1️⃣ Look up the download token and ensure it hasn’t expired
-  const dv = await db.downloadVerification.findUnique({
-    where: { id: downloadVerificationId },
-    select: {
-      productId: true,
-      expiresAt: true,
+  // 1️⃣ Look up a non-expired download token
+  const dv = await db.downloadVerification.findFirst({
+    where: {
+      id: downloadVerificationId,
+      expiresAt: { gt: new Date() },
     },
+    select: { productId: true },
   });
-
-  // If no token or already expired → redirect to “expired” page
-  if (!dv || dv.expiresAt.getTime() <= Date.now()) {
+  if (!dv) {
+    // If no token or expired, redirect to your “expired” page
     return NextResponse.redirect(new URL("/products/download/expired", req.url));
   }
 
-  // 2️⃣ Confirm there is at least one COMPLETED order for this product
+  // 2️⃣ Ensure there’s a completed (status = true) order for this product
   const completedOrder = await db.order.findFirst({
     where: {
       productId: dv.productId,
-      status: "COMPLETED",
+      status: true,
     },
     select: { id: true },
   });
-
-  // If no completed order found → treat as unauthorized/expired
   if (!completedOrder) {
     return NextResponse.redirect(new URL("/products/download/expired", req.url));
   }
@@ -43,28 +38,30 @@ export async function GET(
     where: { id: dv.productId },
     select: { filePath: true, name: true },
   });
-
   if (!product) {
-    // If product was somehow deleted, also redirect
     return NextResponse.redirect(new URL("/products/download/expired", req.url));
   }
 
-  // 4️⃣ Read the file from disk and stream it
+  // 4️⃣ Read and stream the file
   try {
-    const { size } = await fs.stat(product.filePath);
-    const fileBuffer = await fs.readFile(product.filePath);
-    const extension = product.filePath.split(".").pop() || "bin";
+    const filePath = path.resolve(product.filePath);
+    const { size } = await fs.stat(filePath);
+    const fileBuffer = await fs.readFile(filePath);
+
+    const ext = path.extname(filePath).replace(".", "") || "bin";
+    const safeName = product.name.replace(/[^a-z0-9_\-]/gi, "_");
 
     return new NextResponse(fileBuffer, {
       status: 200,
       headers: {
-        "Content-Disposition": `attachment; filename="${product.name}.${extension}"`,
+        "Content-Disposition": `attachment; filename="${safeName}.${ext}"`,
         "Content-Length": size.toString(),
+        "Content-Type": "application/octet-stream",
+        "Cache-Control": "no-cache",
       },
     });
-  } catch (err: any) {
+  } catch (err) {
     console.error("File read error:", err);
-    // If the file is missing or unreadable, treat as expired (or return 404)
     return NextResponse.redirect(new URL("/products/download/expired", req.url));
   }
 }

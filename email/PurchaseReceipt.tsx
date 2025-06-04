@@ -1,137 +1,94 @@
-// app/email/PurchaseReceipt.tsx
-
 import {
   Body,
+  Button as EmailButton,
   Container,
   Head,
   Heading,
   Html,
-  Img,
   Preview,
   Tailwind,
   Text,
-  Button,
-} from "@react-email/components";
-
-// Helper to format rupees (₹) using Intl.NumberFormat
-function formatINR(amountInCents: number) {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(amountInCents / 100);
-}
+} from "@react-email/components"
+import { OrderInformation } from "./components/OrderInformation"
 
 type PurchaseReceiptEmailProps = {
   product: {
-    name: string;
-    imagePath: string;
-    description: string;
-  };
-  order: {
-    id: string;
-    createdAt: Date;
-    pricePaidInCents: number;
-  };
-  downloadVerificationId: string;
-};
+    name: string
+    imagePath: string
+    description: string
+  }
+  order: { id: string; createdAt: Date; pricePaidInCents: number }
+  downloadVerificationId: string
+}
 
-export const PurchaseReceiptEmail = ({
+PurchaseReceiptEmail.PreviewProps = {
+  product: {
+    name: "Awesome Widget",
+    description: "An amazing widget you just purchased.",
+    imagePath: "/products/widget.jpg",
+  },
+  order: {
+    id: crypto.randomUUID(),
+    createdAt: new Date(),
+    pricePaidInCents: 2499,
+  },
+  downloadVerificationId: crypto.randomUUID(),
+} satisfies PurchaseReceiptEmailProps
+
+export default function PurchaseReceiptEmail({
   product,
   order,
   downloadVerificationId,
-}: PurchaseReceiptEmailProps) => {
+}: PurchaseReceiptEmailProps) {
+  // Full download URL (adjust to your domain / env var)
+  const downloadUrl =
+    `${process.env.NEXT_PUBLIC_SERVER_URL}` +
+    `/products/download/${downloadVerificationId}`
+
   return (
     <Html>
-      <Preview>Thank you for purchasing “{product.name}”</Preview>
+      <Preview>Your Purchase of {product.name} is Complete</Preview>
       <Tailwind>
         <Head />
-        <Body className="font-sans bg-white p-4">
-          <Container className="max-w-xl mx-auto bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-            {/* ─── Header ─────────────────────────────────────────────── */}
-            <div className="bg-accentBlue px-6 py-4">
-              <Heading className="text-white">Purchase Confirmation</Heading>
+        <Body className="font-sans bg-white text-black">
+          <Container className="max-w-xl mx-auto p-4">
+            {/* ─── Greeting & Thank You ───────────────────────────────────────── */}
+            <Heading className="text-2xl font-bold mb-2">Hello,</Heading>
+            <Text className="text-base mb-6">
+              Thank you for your purchase! Below is your receipt and a link to
+              download your product.
+            </Text>
+
+            {/* ─── Call‐to‐Action Button ───────────────────────────────────────── */}
+            <div className="mb-6">
+            <EmailButton
+              href={downloadUrl}
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg text-lg font-semibold mb-6 inline-block"
+            >
+              Download Your Product
+            </EmailButton>
             </div>
+            <OrderInformation
+              order={order}
+              product={product}
+              downloadVerificationId={downloadVerificationId}
+            />
 
-            {/* ─── Product Image ─────────────────────────────────────── */}
-            <div className="p-6 flex flex-col md:flex-row items-center gap-4">
-              <div className="w-full md:w-1/3">
-                <Img
-                  src={product.imagePath}
-                  alt={product.name}
-                  width="100%"
-                  height="auto"
-                  className="rounded-md object-cover"
-                />
-              </div>
+            <Text className="text-sm text-gray-600 mt-6">
+              If you have any questions or need assistance, feel free to reply
+              to this email or contact our support team at{" "}
+              <a href="mailto:support@yourdomain.com" className="text-blue-600">
+                support@yourdomain.com
+              </a>
+              .
+            </Text>
 
-              {/* ─── Product & Order Details ──────────────────────── */}
-              <div className="flex-1 space-y-3">
-                <Text className="text-lg font-semibold text-gray-800">
-                  {product.name}
-                </Text>
-                <Text className="text-sm text-gray-600 line-clamp-3">
-                  {product.description}
-                </Text>
-
-                <div className="mt-4 space-y-1">
-                  <Text className="text-sm text-gray-700">
-                    <span className="font-medium">Order ID:</span> {order.id}
-                  </Text>
-                  <Text className="text-sm text-gray-700">
-                    <span className="font-medium">Date:</span>{" "}
-                    {order.createdAt.toLocaleDateString("en-IN", {
-                      day: "2-digit",
-                      month: "short",
-                      year: "numeric",
-                    })}
-                  </Text>
-                  <Text className="text-sm text-gray-700">
-                    <span className="font-medium">Amount Paid:</span>{" "}
-                    {formatINR(order.pricePaidInCents)}
-                  </Text>
-                </div>
-              </div>
-            </div>
-
-            {/* ─── Download Button ─────────────────────────────────── */}
-            <div className="p-6 text-center">
-              <Button
-                className="bg-accentRed text-white px-6 py-3 rounded-lg font-semibold hover:bg-accentRed/80 transition-colors duration-200"
-                href={`https://your‐domain.com/products/download/${downloadVerificationId}`}
-              >
-                Download Now
-              </Button>
-            </div>
-
-            {/* ─── Footer Notes ────────────────────────────────────── */}
-            <div className="bg-gray-50 px-6 py-4 text-center">
-              <Text className="text-xs text-gray-500">
-                This link will expire in 24 hours. If you encounter any
-                issues, please reply to this email or contact our support team.
-              </Text>
-            </div>
+            <Text className="text-xs text-gray-500 mt-8">
+              Thank you for shopping with Aurelius Market. All rights reserved.
+            </Text>
           </Container>
         </Body>
       </Tailwind>
     </Html>
-  );
-};
-
-PurchaseReceiptEmail.PreviewProps = {
-  product: {
-    name: "Sample Product Name",
-    description: "A brief description of the sample product goes here.",
-    imagePath:
-      "https://via.placeholder.com/300x200.png?text=Product+Image",
-  },
-  order: {
-    id: "order_1234abcd",
-    createdAt: new Date(),
-    pricePaidInCents: 9999,
-  },
-  downloadVerificationId: "dv_abcdef123456",
-} satisfies PurchaseReceiptEmailProps;
-
-export default PurchaseReceiptEmail;
+  )
+}
