@@ -22,7 +22,6 @@ export async function emailOrderHistory(
   const userEmail = result.data
 
   try {
-    // 2️⃣ Fetch the user + only their *paid* orders
     const user = await db.user.findUnique({
       where: { email: userEmail },
       select: {
@@ -47,7 +46,6 @@ export async function emailOrderHistory(
       },
     })
 
-    // 3️⃣ If no user or user has no paid orders, return a friendly message
     if (!user || user.orders.length === 0) {
       return {
         message:
@@ -55,7 +53,6 @@ export async function emailOrderHistory(
       }
     }
 
-    // 4️⃣ For each order, either reuse an unexpired token or create a new one
     const enriched = await Promise.all(
       user.orders.map(async (order) => {
         // a) Try to find an existing, non‐expired token for that product
@@ -89,7 +86,6 @@ export async function emailOrderHistory(
       })
     )
 
-    // 5️⃣ Send the “Order History” email with Resend
     const emailResult = await resend.emails.send({
       from: `Support <${process.env.SENDER_EMAIL}>`,
       to: user.email,
@@ -97,7 +93,6 @@ export async function emailOrderHistory(
       react: <OrderHistoryEmail orders={enriched} />,
     })
 
-    // 6️⃣ Check for errors from Resend
     if (emailResult.error) {
       console.error("Resend error:", emailResult.error)
       return { error: "There was a problem sending your email. Please try again later." }
