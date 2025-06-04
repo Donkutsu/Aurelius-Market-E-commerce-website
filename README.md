@@ -84,10 +84,3 @@ npx ngrok http 3000
 * [Resend](https://resend.com/)
 
 ---
-
-### Final Steps:
-1. Add this to your GitHub repo’s `README.md`.
-2. Create a `LICENSE` file with [MIT License](https://choosealicense.com/licenses/mit/).
-3. Commit and push. You’re done!
-
----
